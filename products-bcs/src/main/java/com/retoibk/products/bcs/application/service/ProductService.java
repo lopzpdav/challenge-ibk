@@ -19,10 +19,11 @@ public class ProductService implements ProductInPort {
 
     private final DatabaseOutPort databaseOutPort;
     private final ProductMapper productMapper;
+    private final EncryptionService encryptionService;
 
     @Override
-    public Flux<ProductResponseDTO> getCustomerProducts(Long id) {
-        return databaseOutPort.getProducts(id)//ADD DESENCRIPTAR BASE64
+    public Flux<ProductResponseDTO> getCustomerProducts(String id) {
+        return databaseOutPort.getProducts(Long.valueOf(encryptionService.decrypt(id)))
                 .map(productMapper::toDTO)
                 .switchIfEmpty(Flux.error(new ProductNotFoundException(String.format(PRODUCTS_NOT_FOUND_MESSAGE, id))));
     }

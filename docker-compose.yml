@@ -1,0 +1,48 @@
+version: '3'
+services:
+  # CUSTOMER-BCS
+  customer-bcs:
+    build:
+      context: ./customer-bcs
+    image: customer-bcs:v1.0.0
+    ports:
+      - "8081:8081"
+    environment:
+      - ZIPKIN_URL=http://zipkin:9411/api/v2/spans
+    depends_on:
+      - zipkin
+
+  # PRODUCTS-BCS
+  products-bcs:
+    build:
+      context: ./products-bcs
+    image: products-bcs:v1.0.0
+    ports:
+      - "8083:8083"
+    environment:
+      - ZIPKIN_URL=http://zipkin:9411/api/v2/spans
+    depends_on:
+      - zipkin
+
+  # CUSTOMER-PRODUCTS-BCS
+  customer-products-bff:
+    build:
+      context: ./customer-products-bff
+    image: customer-products-bff:v1.0.0
+    ports:
+      - "8085:8085"
+    environment:
+      - CUSTOMER_BASE_URL=http://customer-bcs:8081/api/v1
+      - PRODUCTS_BASE_URL=http://products-bcs:8083/api/v1
+      - ZIPKIN_URL=http://zipkin:9411/api/v2/spans
+    depends_on:
+      - zipkin
+      - customer-bcs
+      - products-bcs
+
+  ##ZIPKIN
+  zipkin:
+    container_name: zipkin
+    image: openzipkin/zipkin:2.24.2
+    ports:
+      - "9411:9411"

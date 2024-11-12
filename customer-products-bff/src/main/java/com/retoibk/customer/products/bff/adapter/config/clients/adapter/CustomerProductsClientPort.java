@@ -4,6 +4,7 @@ import com.retoibk.customer.products.bff.adapter.config.clients.web.client.Custo
 import com.retoibk.customer.products.bff.adapter.config.clients.web.client.ProductsServiceClient;
 import com.retoibk.customer.products.bff.application.ports.output.CustomerProductsOutPort;
 import com.retoibk.customer.products.bff.domain.response.CustomerClientResponseDTO;
+import com.retoibk.customer.products.bff.domain.response.CustomerListResponseDTO;
 import com.retoibk.customer.products.bff.domain.response.ProductsClientResponseDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -17,12 +18,17 @@ public class CustomerProductsClientPort implements CustomerProductsOutPort {
     private final ProductsServiceClient productsServiceClient;
 
     @Override
-    public Mono<CustomerClientResponseDTO> getCustomerData(Long uniqueCode) {
+    public Flux<CustomerListResponseDTO> getCustomerList() {
+        return customerServiceClient.getCustomerList();
+    }
+
+    @Override
+    public Mono<CustomerClientResponseDTO> getCustomerData(String uniqueCode) {
         return customerServiceClient.getCustomerData(uniqueCode);
     }
 
     @Override
-    public Flux<ProductsClientResponseDTO> getCustomerProducts(Long uniqueCode) {
+    public Flux<ProductsClientResponseDTO> getCustomerProducts(String uniqueCode) {
         return productsServiceClient.getCustomerProducts(uniqueCode);
     }
 }

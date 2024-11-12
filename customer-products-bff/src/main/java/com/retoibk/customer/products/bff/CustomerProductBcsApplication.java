@@ -6,10 +6,10 @@ import org.springframework.web.reactive.config.EnableWebFlux;
 
 @EnableWebFlux
 @SpringBootApplication
-public class ProductBcsApplication {
+public class CustomerProductBcsApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(ProductBcsApplication.class, args);
+		SpringApplication.run(CustomerProductBcsApplication.class, args);
 	}
 
 }

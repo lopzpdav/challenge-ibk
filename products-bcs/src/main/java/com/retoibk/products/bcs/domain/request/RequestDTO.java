@@ -1,7 +1,7 @@
 package com.retoibk.products.bcs.domain.request;
 
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotBlank;
 
 public record RequestDTO(
-        @NotNull (message = "id must not be null") Long customerId){
+        @NotBlank(message = "id must not be null") String customerId){
 }

@@ -4,10 +4,13 @@ import com.retoibk.customer.bcs.application.ports.input.CustomerInPort;
 import com.retoibk.customer.bcs.application.ports.output.DatabaseOutPort;
 import com.retoibk.customer.bcs.domain.exceptions.IdNotFoundException;
 import com.retoibk.customer.bcs.domain.mapper.CustomerMapper;
+import com.retoibk.customer.bcs.domain.response.CustomerListResponseDTO;
+import com.retoibk.customer.bcs.domain.response.CustomerListResponseEncryptedDTO;
 import com.retoibk.customer.bcs.domain.response.CustomerResponseDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.Base64;
@@ -21,17 +24,19 @@ public class CustomerService implements CustomerInPort {
 
     private final DatabaseOutPort databaseOutPort;
     private final CustomerMapper customerMapper;
+    private final EncryptionService encryptionService;
 
     @Override
-    public Mono<CustomerResponseDTO> getCustomerDetails(Long id) {
-        return databaseOutPort.getCustomer(id)//ADD UTIL PARA DESENCRIPTAR ID Y CAMBIAR TIPO ID A STRING
-                .doOnNext(System.out::println)
+    public Flux<CustomerListResponseEncryptedDTO> getCustomerList() {
+        return databaseOutPort.getCustomerList()
+                .map(customer -> new CustomerListResponseEncryptedDTO(encryptionService.encrypt(customer.getId().toString())))
+                .switchIfEmpty(Flux.error(new IdNotFoundException(String.format(ID_NOT_FOUND_MESSAGE, "id"))));
+    }
+
+    @Override
+    public Mono<CustomerResponseDTO> getCustomerDetails(String id) {
+        return databaseOutPort.getCustomer(Long.valueOf(encryptionService.decrypt(id)))
                 .map(customerMapper::toDTO)
                 .switchIfEmpty(Mono.error(new IdNotFoundException(String.format(ID_NOT_FOUND_MESSAGE, id))));
     }
-
-//    public Long decodeBase64(String base64Value) {
-//        byte[] decodedBytes = Base64.getDecoder().decode(base64Value);
-//        return Long.valueOf(new String(decodedBytes));
-//    }
 }

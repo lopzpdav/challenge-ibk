@@ -2,6 +2,8 @@ server:
   port: 8081
 
 spring:
+  application:
+    name: customer-bcs
   r2dbc:
     url: r2dbc:h2:mem:///ibkchallenge?options=DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
     username: sa
@@ -21,11 +23,14 @@ springdoc:
 management:
   zipkin:
     tracing:
-      endpoint: http://localhost:9411/api/v2/spans
+      endpoint: ${ZIPKIN_URL}
   tracing:
     sampling:
       probability: 1.0
 
 logging:
+  level:
+    root: INFO
+    org.springframework.web: DEBUG
   pattern:
     level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
