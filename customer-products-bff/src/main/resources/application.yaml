@@ -1,22 +1,25 @@
 server:
-  port: 8080
+  port: 8085
 
 spring:
   security:
     oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: "http://127.0.0.1:9000"
       client:
         registration:
-          oauth-client:
-            provider: oauth-server
-            client-id: oauth-client
+          client-bff:
+            provider: spring
+            client-id: client-bff
             client-secret: 12345678910
             authorization-grant-type: authorization_code
-            redirect-uri: "http://127.0.0.1:8080/authorized"
+            redirect-uri: "http://127.0.0.1:8085/authorized"
             scope: openid,profile,read,write
-            client-name: oauth-client
+            client-name: client-bff
         provider:
-          oauth-server:
-            issuer-uri: http://127.0.0.1:9000
+          spring:
+            issuer-uri: "http://127.0.0.1:9000"
   application:
     name: customer-products-bff
 

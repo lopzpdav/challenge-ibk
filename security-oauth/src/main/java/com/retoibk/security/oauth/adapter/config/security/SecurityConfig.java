@@ -34,11 +34,8 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
 
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.InputStream;
-import java.security.*;
-import java.security.cert.X509Certificate;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.util.UUID;
@@ -46,24 +43,20 @@ import java.util.UUID;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
-
     @Bean
     @Order(1)
-    SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http)
+    public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http)
             throws Exception {
         OAuth2AuthorizationServerConfiguration.applyDefaultSecurity(http);
         http.getConfigurer(OAuth2AuthorizationServerConfigurer.class)
-                .oidc(Customizer.withDefaults());	// Enable OpenID Connect 1.0
+                .oidc(Customizer.withDefaults());
         http
-                // Redirect to the login page when not authenticated from the
-                // authorization endpoint
                 .exceptionHandling((exceptions) -> exceptions
                         .defaultAuthenticationEntryPointFor(
                                 new LoginUrlAuthenticationEntryPoint("/login"),
                                 new MediaTypeRequestMatcher(MediaType.TEXT_HTML)
                         )
                 )
-                // Accept access tokens for User Info and/or Client Registration
                 .oauth2ResourceServer((resourceServer) -> resourceServer
                         .jwt(Customizer.withDefaults()));
 
@@ -72,39 +65,31 @@ public class SecurityConfig {
 
     @Bean
     @Order(2)
-    SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http)
+    public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http)
             throws Exception {
         http
                 .authorizeHttpRequests((authorize) -> authorize
                         .anyRequest().authenticated()
                 )
                 .csrf(csrf -> csrf.disable())
-                // Form login handles the redirect to the login page from the
-                // authorization server filter chain
                 .formLogin(Customizer.withDefaults());
 
         return http.build();
     }
 
     @Bean
-    UserDetailsService userDetailsService() {
+    public UserDetailsService userDetailsService() {
         UserDetails userDetails = User.builder()
                 .username("user")
-                .password("{noop}123456")
+                .password("{noop}pass")
                 .roles("USER")
                 .build();
 
-        UserDetails adminDetails = User.builder()
-                .username("admin")
-                .password("{noop}123456")
-                .roles("USER","ADMIN")
-                .build();
-
-        return new InMemoryUserDetailsManager(userDetails, adminDetails);
+        return new InMemoryUserDetailsManager(userDetails);
     }
 
     @Bean
-    RegisteredClientRepository registeredClientRepository() {
+    public RegisteredClientRepository registeredClientRepository() {
         RegisteredClient oidcClient = RegisteredClient.withId(UUID.randomUUID().toString())
                 .clientId("client-bff")
                 .clientSecret("{noop}12345678910")
@@ -118,70 +103,45 @@ public class SecurityConfig {
                 .scope(OidcScopes.PROFILE)
                 .scope("read")
                 .scope("write")
+                .clientSettings(ClientSettings.builder().requireAuthorizationConsent(false).build())
                 .build();
 
-        RegisteredClient oidcClientPrueba = RegisteredClient.withId(UUID.randomUUID().toString())
-                .clientId("client-test")
-                .clientSecret("{noop}12345")
-                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
-                .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
-                .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
-                .redirectUri("https://oauthdebugger.com/debug")
-                .scope(OidcScopes.OPENID)
-                .scope(OidcScopes.PROFILE)
+        return new InMemoryRegisteredClientRepository(oidcClient);
+    }
+
+    @Bean
+    public JWKSource<SecurityContext> jwkSource() {
+        KeyPair keyPair = generateRsaKey();
+        RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
+        RSAPrivateKey privateKey = (RSAPrivateKey) keyPair.getPrivate();
+        RSAKey rsaKey = new RSAKey.Builder(publicKey)
+                .privateKey(privateKey)
+                .keyID(UUID.randomUUID().toString())
                 .build();
-
-        return new InMemoryRegisteredClientRepository(oidcClient, oidcClientPrueba);
-    }
-
-    @Bean
-    KeyStore keyStore() throws Exception {
-        KeyStore keyStore = KeyStore.getInstance("JKS");
-        try (InputStream fis = getClass().getClassLoader().getResourceAsStream("keystore.jks")) {
-            if (fis == null) {
-                throw new FileNotFoundException("Keystore file not found in classpath");
-            }
-            keyStore.load(fis, "customer".toCharArray());
-        }
-        return keyStore;
-    }
-
-    @Bean
-    PrivateKey privateKey(KeyStore keyStore) throws Exception {
-        return (PrivateKey) keyStore.getKey("customer-products-key", "customer".toCharArray());
-    }
-
-    @Bean
-    PublicKey publicKey(KeyStore keyStore) throws Exception {
-        X509Certificate cert = (X509Certificate) keyStore.getCertificate("customer-products-key");
-        return cert.getPublicKey();
-    }
-
-    @Bean
-    JWKSource<SecurityContext> jwkSource(PublicKey publicKey, PrivateKey privateKey) {
-        String fixedKid = "7a551d1c-1cab-427a-a7c1-16a6abedf27e";
-
-        RSAKey rsaKey = new RSAKey.Builder((RSAPublicKey) publicKey)
-                .privateKey((RSAPrivateKey) privateKey)
-                .keyID(fixedKid)
-                .build();
-
         JWKSet jwkSet = new JWKSet(rsaKey);
         return new ImmutableJWKSet<>(jwkSet);
     }
 
-    @Bean
-    JwtEncoder jwtEncoder(JWKSource<SecurityContext> jwkSource) {
-        return new NimbusJwtEncoder(jwkSource);
+    private static KeyPair generateRsaKey() {
+        KeyPair keyPair;
+        try {
+            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+            keyPairGenerator.initialize(2048);
+            keyPair = keyPairGenerator.generateKeyPair();
+        } catch (Exception ex) {
+            throw new IllegalStateException(ex);
+        }
+        return keyPair;
     }
 
     @Bean
-    JwtDecoder jwtDecoder(JWKSource<SecurityContext> jwkSource) {
+    public JwtDecoder jwtDecoder(JWKSource<SecurityContext> jwkSource) {
         return OAuth2AuthorizationServerConfiguration.jwtDecoder(jwkSource);
     }
 
     @Bean
-    AuthorizationServerSettings authorizationServerSettings() {
+    public AuthorizationServerSettings authorizationServerSettings() {
         return AuthorizationServerSettings.builder().build();
     }
+
 }
